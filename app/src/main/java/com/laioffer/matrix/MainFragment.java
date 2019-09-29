@@ -3,6 +3,7 @@ package com.laioffer.matrix;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -19,6 +20,7 @@ import androidx.fragment.app.Fragment;
 
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.speech.RecognizerIntent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -57,8 +59,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Locale;
 
 import static android.app.Activity.RESULT_OK;
+import static com.laioffer.matrix.Config.listItems;
 
 
 /**
@@ -66,6 +71,7 @@ import static android.app.Activity.RESULT_OK;
  */
 public class MainFragment extends Fragment implements OnMapReadyCallback, ReportDialog.DialogCallBack, GoogleMap.OnMarkerClickListener {
     private static final int REQUEST_CAPTURE_IMAGE = 100;
+    private static final int REQ_CODE_SPEECH_INPUT = 101;
     private final String path = Environment.getExternalStorageDirectory() + "/temp.png";
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
@@ -80,6 +86,7 @@ public class MainFragment extends Fragment implements OnMapReadyCallback, Report
     private FloatingActionButton fabReport;
     private ReportDialog dialog;
     private FloatingActionButton fabFocus;
+    private FloatingActionButton speakNow;
     //event information part
     private BottomSheetBehavior bottomSheetBehavior;
     private ImageView mEventImageLike;
@@ -126,8 +133,32 @@ public class MainFragment extends Fragment implements OnMapReadyCallback, Report
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+        // Inflate the layout for this fragment
         view = inflater.inflate(R.layout.fragment_main, container,
                 false);
+        fabReport = view.findViewById(R.id.fab);
+        fabReport.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showDialog(null, null);
+            }
+        });
+
+        fabFocus = view.findViewById(R.id.fab_focus);
+        fabFocus.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mapView.getMapAsync(MainFragment.this);
+            }
+        });
+        speakNow = view.findViewById(R.id.voice);
+        speakNow.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                askSpeechInput("Hi speak something");
+            }
+        });
+
         database = FirebaseDatabase.getInstance().getReference();
         storage = FirebaseStorage.getInstance();
         storageRef = storage.getReference();
@@ -135,6 +166,22 @@ public class MainFragment extends Fragment implements OnMapReadyCallback, Report
         setupBottomBehavior();
         return view;
     }
+
+    private void askSpeechInput(String string) {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000);
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT,
+                string);
+        try {
+            startActivityForResult(intent, REQ_CODE_SPEECH_INPUT);
+        } catch (ActivityNotFoundException a) {
+
+        }
+    }
+
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
@@ -193,7 +240,8 @@ public class MainFragment extends Fragment implements OnMapReadyCallback, Report
        //dialog = new ReportDialog(getContext());
         int cx = (int) (fabReport.getX() + (fabReport.getWidth() / 2));
         int cy = (int) (fabReport.getY()) + fabReport.getHeight() + 56;
-        dialog = ReportDialog.newInstance(getContext(), cx, cy, this);
+        //dialog = ReportDialog.newInstance(getContext(), cx, cy, this);
+        dialog = ReportDialog.newInstance(getContext(), cx, cy, this, label, prefillText);
         dialog.show();
     }
 
@@ -350,6 +398,32 @@ public class MainFragment extends Fragment implements OnMapReadyCallback, Report
                 }
                 break;
             }
+            case REQ_CODE_SPEECH_INPUT: {
+                showDialog("Traffic", "there's a traffic ahead");
+//                if (resultCode == RESULT_OK && null != data) {
+//
+//                    ArrayList<String> result = data
+//                            .getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+//                    if (result.size() > 0) {
+//                        final String sentence = result.get(0);
+//                        boolean isMatch = false;
+//                        for (int i = 0; i < listItems.size(); i++) {
+//                            final String label = listItems.get(i).getDrawable_label();
+//                            if (sentence.toLowerCase().contains(label.toLowerCase())) {
+//                                //Toast.makeText(getContext(), sentence, Toast.LENGTH_LONG).show();
+//                                showDialog(label, sentence);
+//                                isMatch = true;
+//                                break;
+//                            }
+//                        }
+//                        if (!isMatch) {
+//                            askSpeechInput("Try again");
+//                        }
+//                    }
+//                }
+                break;
+            }
+
             default:
         }
     }
